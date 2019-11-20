@@ -1,5 +1,3 @@
-# houseprices
-Predicting house prices - an old Kaggle competition 
 library(tidyverse)
 library(naniar)
 library(UpSetR)
@@ -14,16 +12,9 @@ house = read.csv("house_train.csv")
 
 #Understanding the data
 head(house)
-house$X.1 = NULL
-house$X.3 = NULL
-house$X.2 = NULL
-house$X = NULL
 
+#Let's visualize the spread of house prices
 ggplot(house, aes(x=SalePrice)) + geom_histogram()
-
-ggplot(house, aes(x=GrLivArea, y=GarageArea,color=factor(colorcluster))) + geom_point() + ylab("Garage Area") + xlab("Living Area") + ggtitle("Garage Area and Living Area") + labs(
-  colour = "Cluster"
-)
 
 #Visualise missing values
 vis_miss(house[,1:30])
@@ -97,8 +88,6 @@ house$YearRemodAdd = 2011 - house$YearRemodAdd
 #Replace the 2011 in GarageYrBuilt to 0
 house = replace.value(house, "GarageYrBlt", 2011, 0)
 
-write.csv(house, "house_train.csv")
-
 #Let us develop clusters of houses with respect to its rooms information. We want to see how house 
 #types vary with respect to their age, lot area, total basement area, living room area, and garage area.
 house_cluster = house[,c(4,18,37,61,45)]
@@ -107,9 +96,9 @@ head(house_cluster)
 #Now we scale the values
 house_scaled <- scale(house_cluster)
 apply(house_scaled,2,sd) 
-# we should get sd=1
+#we should get sd=1
 apply(house_scaled,2,mean) 
-# we should get mean = 0
+#we should get mean = 0
 ###kmeans with 4 clusters
 house_kmeans <- kmeans(house_scaled,4,nstart=10)
 colorcluster <- house_kmeans$cluster
@@ -131,36 +120,36 @@ kIC <- function(fit, rule=c("A","B","C")){
     return(D +  sqrt( n * log(df) )*df)
 }
 
-### computing # of clusters in our example:
+###computing # of clusters in our example:
 kfit <- lapply(1:30, function(k) kmeans(house_scaled,k,nstart=5))
-# choose number of clusters based on the fit above
-# we will use the  script kIC in DataAnalyticsFunctions.R
-# We call the function kIC the performance of the various 
-# kmeans for k=1,...50, that was stored in kfit.
-# Then "A" for AICc (default) or "B" for BIC
+#choose number of clusters based on the fit above
+#we will use the  script kIC in DataAnalyticsFunctions.R
+#We call the function kIC the performance of the various 
+#kmeans for k=1,...50, that was stored in kfit.
+#Then "A" for AICc (default) or "B" for BIC
 kaic <- sapply(kfit, kIC)
 kbic  <- sapply(kfit,kIC,"B")
 kHDic  <- sapply(kfit,kIC,"C")
-## Now we plot them, first we plot AIC
+##Now we plot them, first we plot AIC
 par(mar=c(1,1,1,1))
 par(mai=c(1,1,1,1))
 plot(kaic, xlab="k (# of clusters)", ylab="IC (Deviance + Penalty)", 
      ylim=range(c(kaic,kbic,kHDic)), # get them on same page
      type="l", lwd=2)
-# Vertical line where AIC is minimized
+#Vertical line where AIC is minimized
 abline(v=which.min(kaic))
-# Next we plot BIC
+#Next we plot BIC
 lines(kbic, col=4, lwd=2)
-# Vertical line where BIC is minimized
+#Vertical line where BIC is minimized
 abline(v=which.min(kbic),col=4)
-# Next we plot HDIC
+#Next we plot HDIC
 lines(kHDic, col=3, lwd=2)
-# Vertical line where HDIC is minimized
+#Vertical line where HDIC is minimized
 abline(v=which.min(kHDic),col=3)
 
-# Insert labels
+#Insert labels
 text(c(which.min(kaic),which.min(kbic),which.min(kHDic)),c(mean(kaic),mean(kbic),mean(kHDic)),c("AIC","BIC","HDIC"))
-# both AICc and BIC choose more complicated models
+#both AICc and BIC choose more complicated models
 #We choose 4 clusters as the optimal number, as done previously
 house_cluster = data.frame(colorcluster)
 house = cbind(house, house_cluster)
@@ -210,13 +199,15 @@ summary(lm1)
 
 #Tree model
 library(rpart)
+library(rpart.plot)
 set.seed(123)
 tree_model = rpart(house$SalePrice ~ ., data = house, method = "anova")
 tree_model$variable.importance
+rpart.plot(tree_model)
 
 #Random Forest
 set.seed(123)
-sample_random <- randomForest((SalePrice)~GrLivArea+X1stFlrSF+colorcluster, data=house, importance=T, ntree=500)
+sample_random <- randomForest((SalePrice)~GrLivArea+X1stFlrSF+colorcluster+MSSubClass+GarageArea+ExterQual+Neighborhood+OverallQual+FullBath+TotalBsmtSF+YearBuilt, data=house, importance=T, ntree=500)
 sample_random$importance
 sample_random$predicted
 print(sample_random)
@@ -226,11 +217,11 @@ set.seed(123)
 nfold <- 10
 n <- nrow(house) # the number of observations
 foldid <- rep(1:nfold,each=ceiling(n/nfold))[sample(1:n)]
-model.reg <- lm(SalePrice~(colorcluster)+OverallQual+FullBath+BsmtFullBath+MSSubClass+BsmtQual+ExterQual+KitchenQual+X1stFlrSF+TotalBsmtSF+GarageCars, house, subset=which(foldid==1))
+model.reg <- lm(SalePrice~(colorcluster)+OverallQual+FullBath+BsmtFullBath+MSSubClass+BsmtQual+ExterQual+KitchenQual+X1stFlrSF+TotalBsmtSF+GarageArea+GrLivArea, house, subset=which(foldid==1))
 model.reg
 model.null <- glm(SalePrice~1, data=house, subset=which(foldid==1))
 model.tree <- rpart(SalePrice ~ ., data=house, method="anova", subset=which(foldid==1))
-model.rf <- randomForest((SalePrice)~OverallQual+TotalBsmtSF+colorcluster+FullBath+GarageCars, data=house, importance=T, ntree=500, subset=which(foldid==1))
+model.rf <- randomForest((SalePrice)~GrLivArea+X1stFlrSF+colorcluster+MSSubClass+GarageArea+ExterQual+Neighborhood+OverallQual+FullBath+TotalBsmtSF+YearBuilt, data=house, importance=T, ntree=500, subset=which(foldid==1))
 
 R2 <- function(y, pred, family=c("gaussian","binomial")){
   fam <- match.arg(family)
@@ -242,13 +233,12 @@ R2 <- function(y, pred, family=c("gaussian","binomial")){
   return(1-dev/dev0)
 }
 
-R2.ctree2 <-R2(y=house$SalePrice, pred=predict(tree_model, newdata=house))
-R2.ctree2
-
+R2.rf <-R2(y=house$SalePrice, pred=predict(sample_random, newdata=house))
+R2.rf
 
 OOS <- data.frame(rf=rep(NA, nfold), reg=rep(NA, nfold), tree=rep(NA, nfold), null=rep(NA, nfold)) 
 house = data.frame(house)
-### Set the other part for training (if not k)
+#Set the other part for training (if not k)
 traink <- which(foldid!=k) # train on all but fold `k'
 testk  <- which(foldid==k) # test on fold k
 
@@ -257,28 +247,28 @@ pred.tree   <- predict(model.tree, newdata=house[-traink,], type="vector")
 pred.null <- predict(model.null, newdata=house[-traink,])
 pred.rf = predict(model.rf, newdata=house[-traink,])
 nfold
-### Use a for loop to run through the nfold trails
+###Use a for loop to run through the nfold trails
 for(k in 1:nfold){ 
   traink <- which(foldid!=k) # train on all but fold `k'
   
-  ## fit the two regressions and null model
-  model.rf <- randomForest((SalePrice)~OverallQual+TotalBsmtSF+colorcluster+FullBath+GarageCars, data=house, subset=traink)
+  ##fit the two regressions and null model
+  model.rf <- randomForest((SalePrice)~GrLivArea+X1stFlrSF+colorcluster+MSSubClass+GarageArea+ExterQual+Neighborhood+OverallQual+FullBath+TotalBsmtSF+YearBuilt, data=house, importance=T, ntree=500, subset=traink)
   model.reg <- lm(SalePrice~(colorcluster)+OverallQual+FullBath+BsmtFullBath+MSSubClass+BsmtQual+ExterQual+KitchenQual+X1stFlrSF+TotalBsmtSF+GarageCars, house, subset=traink)
   model.tree <- rpart(SalePrice ~ ., data=house, method="anova", subset=traink)
   model.nulll <-glm(SalePrice~1, data=house, subset=traink)
-  ## get predictions: type=response so we have probabilities
+  ##get predictions: type=response so we have probabilities
   pred.rf = predict(model.rf, newdata=house[-traink,])
   pred.reg             <- predict(model.reg, newdata=house[-traink,])
   pred.tree                 <- predict(model.tree, newdata=house[-traink,])
   pred.null <- predict(model.null, newdata=house[-traink,])
-  ## calculate and log R2
-  # RF
+  ##calculate and log R2
+  #RF
   OOS$rf[k] <- R2(y=house$SalePrice[-traink], pred=pred.rf)
   OOS$rf[k]
-  # Reg
+  #Reg
   OOS$reg[k] <- R2(y=house$SalePrice[-traink], pred=pred.reg)
   OOS$reg[k]
-  # Tree
+  #Tree
   OOS$tree[k] <- R2(y=house$SalePrice[-traink], pred=pred.tree)
   OOS$tree[k]
   #Null
@@ -287,8 +277,8 @@ for(k in 1:nfold){
   #Null Model guess
   sum(house$SalePrice[traink]=="Yes")/length(traink)
   
-  ## We will loop this nfold times (I setup for 10)
-  ## this will print the progress (iteration that finished)
+  ##We will loop this nfold times (I setup for 10)
+  ##this will print the progress (iteration that finished)
   print(paste("Iteration",k,"of",nfold,"(thank you for your patience)"))
 }
 
@@ -298,14 +288,7 @@ rownames(m.OOS) <- c(1:nfold)
 barplot(t(as.matrix(OOS)), beside=TRUE, legend=TRUE, args.legend=c(xjust=1, yjust=0.5),
         ylab= bquote( "Out of Sample " ~ R^2), xlab="Fold", names.arg = c(1:10))
 
-
-if (nfold >= 10){
-  names(OOS)[1] <-"Reg"
-  boxplot(OOS, col="plum", las = 2, ylab=expression(paste("OOS ",R^2)), xlab="", main="10-fold Cross Validation")
-  names(OOS)[1] <-"Reg"
-}
-
-
+#Working with the test set
 house_test = read.csv("house_test.csv")
 house_test$GarageType = str_replace_na(house_test$GarageType)
 house_test$GarageYrBlt[is.na(house_test$GarageYrBlt)] = 0
@@ -360,16 +343,14 @@ house_test$BsmtUnfSF[is.na(house_test$BsmtUnfSF)] = 0
 testcluster = house_test[,c("LotArea", "YearBuilt", "TotalBsmtSF", "GarageArea", "GrLivArea")]
 house_test_scaled <- scale(testcluster)
 apply(house_test_scaled,2,sd) 
-# we should get sd=1
+#we should get sd=1
 apply(house_test_scaled,2,mean) 
-# we should get mean = 0
+#we should get mean = 0
 ###kmeans with 4 clusters
 house_test_kmeans <- kmeans(house_test_scaled,4,nstart=10)
 colorcluster <- house_test_kmeans$cluster
-colorcluster  
+colorcluster
 house_test$colorcluster = as.factor(colorcluster)
 
-predictions = predict(model.reg, newdata=house_test)
+predictions = predict(sample_random, newdata=house_test)
 predictions = data.frame(predictions)
-predictions
-write.csv(predictions, "predictions.csv")
